@@ -45,3 +45,24 @@ if st.sidebar.button("Run Backtest"):
             st.subheader("Cumulative Wealth: Strategy vs. Equal Weight")
             equity_curves = np.exp(returns_df.cumsum())
             st.line_chart(equity_curves)
+
+            # --- Educational Section ---
+            st.markdown("---")
+            st.subheader("📚 Under the Hood: How it Works")
+            
+            with st.expander("What do these metrics mean?"):
+                st.markdown("""
+                * **Sharpe Ratio:** The ultimate "Quant" metric. It measures how much excess return you are getting for every unit of risk (volatility) you take. A higher number is better. 
+                * **Ann. Return:** The average percentage the portfolio is expected to grow per year.
+                * **Max Drawdown:** The "pain factor." It measures the largest single drop from a previous peak to the lowest trough. If you invested at the absolute worst time, this is the maximum percentage you would have lost.
+                * **Volatility:** The annualized standard deviation of daily returns. Higher volatility means a bumpier, more unpredictable ride.
+                """)
+                
+            with st.expander("The Methodology (Convex Optimization)"):
+                st.markdown("""
+                This engine uses **Disciplined Convex Programming (DCP)** to dynamically optimize asset allocation, simulating a real-world quantitative trading strategy.
+
+                1. **The Walk-Forward Loop:** The model doesn't peak into the future. At each time step, it only looks at the previous `N` days (the look-back window) to estimate expected returns ($\mu$) and asset covariance ($\Sigma$).
+                2. **Mean-Variance Optimization:** Using the `CVXPY` solver, it finds the exact portfolio weights ($w$) that maximize expected return while penalizing variance (controlled by the **Risk Aversion** $\gamma$ slider).
+                3. **Transaction Costs:** Real markets aren't free. We apply an $L_1$-norm penalty to the objective function: $\lambda \|w_t - w_{t-1}\|_1$. This forces the optimizer to be "lazy," only executing a trade if the expected alpha strictly outweighs the broker fees (controlled by the **Lambda** slider).
+                """)
