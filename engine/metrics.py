@@ -9,6 +9,13 @@ def calculate_metrics(returns_series):
     # Using log returns property: total return = exp(sum)
     total_return = np.exp(returns_series.sum()) - 1
     days = len(returns_series)
+    if days == 0:
+        return {
+            "Annualized Return": "0.00%",
+            "Annualized Vol": "0.00%",
+            "Sharpe Ratio": "0.00",
+            "Max Drawdown": "0.00%"
+        }
     ann_return = (1 + total_return) ** (252 / days) - 1
     
     # 2. Annualized Volatility

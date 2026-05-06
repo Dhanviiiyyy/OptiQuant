@@ -21,23 +21,27 @@ lambda_cost = st.sidebar.slider("Transaction Cost Penalty (Lambda)", 0.0000, 0.0
 if st.sidebar.button("Run Backtest"):
     ticker_list = [t.strip() for t in tickers.split(",")]
     
-    with st.spinner("Optimizing Portfolio..."):
+    with st.spinner("Fetching data and optimizing..."):
         prices, rets = get_data(ticker_list, '2023-01-01', '2026-05-01')
         
-        # Update function call to include lambda
-        returns_df = run_backtest(rets, window=window, gamma=gamma, lambda_cost=lambda_cost)
-        
-        # Calculate metrics ONLY for the Strategy column
-        metrics = calculate_metrics(returns_df['Strategy'])
-        
-        # --- Display Results ---
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Sharpe Ratio", metrics["Sharpe Ratio"])
-        col2.metric("Ann. Return", metrics["Annualized Return"])
-        col3.metric("Max Drawdown", metrics["Max Drawdown"])
-        col4.metric("Volatility", metrics["Annualized Vol"])
+        # Checking if yfinance actually gave us enough data
+        if rets.empty or len(rets) <= window:
+            st.error(f"Not enough data fetched from Yahoo Finance. We need at least {window + 1} days of data, but got {len(rets)}. Try again in a minute or try different tickers.")
+        else:
+            # Run Strategy
+            returns_df = run_backtest(rets, window=window, gamma=gamma, lambda_cost=lambda_cost)
+            
+            # Calculate Metrics
+            metrics = calculate_metrics(returns_df['Strategy'])
+            
+            # --- Display Results ---
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Sharpe Ratio", metrics["Sharpe Ratio"])
+            col2.metric("Ann. Return", metrics["Annualized Return"])
+            col3.metric("Max Drawdown", metrics["Max Drawdown"])
+            col4.metric("Volatility", metrics["Annualized Vol"])
 
-        # 💥 Plot both curves!
-        st.subheader("Cumulative Wealth: Strategy vs. Equal Weight")
-        equity_curves = np.exp(returns_df.cumsum())
-        st.line_chart(equity_curves)
+            # Plot Equity Curve
+            st.subheader("Cumulative Wealth: Strategy vs. Equal Weight")
+            equity_curves = np.exp(returns_df.cumsum())
+            st.line_chart(equity_curves)
