@@ -2,43 +2,111 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-def solve_markowitz(returns_df, gamma=0.5, w_prev=None, lambda_cost=0.01):
+
+def solve_markowitz(
+    returns_df,
+    method="mvo",
+    gamma=2.0,
+    w_prev=None,
+    lambda_cost=0.01,
+    lambda_ridge=0.05,
+):
     """
-    Mean-Variance Optimization with L1 Transaction Costs.
+    Portfolio Optimization Engine
+
+    Methods
+    -------
+    mvo    : Classical Mean-Variance Optimization
+    gmv    : Global Minimum Variance Portfolio
+    ridge  : Ridge-Regularized Mean-Variance Optimization
+
+    Parameters
+    ----------
+    gamma : Risk aversion parameter
+    lambda_cost : L1 transaction cost penalty
+    lambda_ridge : L2 ridge regularization strength
     """
+
+    # ------------------------------------------------------------------
+    # Estimate expected returns and covariance matrix
+    # ------------------------------------------------------------------
     mu = returns_df.mean().values
     Sigma = returns_df.cov().values
     n = len(mu)
 
+    # Portfolio weights (decision variable)
     w = cp.Variable(n)
-    
+
+    # Portfolio expected return
     expected_return = mu @ w
+
+    # Portfolio variance
     risk = cp.quad_form(w, cp.psd_wrap(Sigma))
-    
-    # 💥 The "Boyd" Signal: L1 Transaction Cost Penalty
+
+    # ------------------------------------------------------------------
+    # L1 Transaction Cost Penalty
+    # ------------------------------------------------------------------
     if w_prev is not None and lambda_cost > 0:
         transaction_cost = lambda_cost * cp.norm(w - w_prev, 1)
     else:
         transaction_cost = 0
 
-    # Objective: Maximize Return, Minimize Risk, Minimize Turnover
-    objective = cp.Maximize(expected_return - gamma * risk - transaction_cost)
+    # ------------------------------------------------------------------
+    # Optimization Objective
+    # ------------------------------------------------------------------
+    if method == "gmv":
 
+        # Global Minimum Variance
+        objective = cp.Minimize(
+            risk + transaction_cost
+        )
+
+    elif method == "ridge":
+
+        # Ridge (L2) Regularization
+        ridge_penalty = lambda_ridge * cp.sum_squares(w)
+
+        objective = cp.Maximize(
+            expected_return
+            - gamma * risk
+            - transaction_cost
+            - ridge_penalty
+        )
+
+    else:
+
+        # Classical Markowitz Mean-Variance
+        objective = cp.Maximize(
+            expected_return
+            - gamma * risk
+            - transaction_cost
+        )
+
+    # ------------------------------------------------------------------
+    # Portfolio Constraints
+    # ------------------------------------------------------------------
     constraints = [
-        cp.sum(w) == 1, 
-        w >= 0,
-        w <= 0.4  # Max 40% in one stock to enforce diversification
+        cp.sum(w) == 1,   # Fully invested
+        w >= 0,           # Long only
+        w <= 0.40         # Max 40% allocation to one asset
     ]
 
-    prob = cp.Problem(objective, constraints)
-    
+    problem = cp.Problem(objective, constraints)
+
     try:
-        # OSQP is a fast solver for Quadratic Programs
-        prob.solve()
+        problem.solve(solver=cp.OSQP)
+
         if w.value is None:
-            raise ValueError("Solver failed to find optimal weights")
+            raise ValueError("No feasible solution found.")
+
         return pd.Series(w.value, index=returns_df.columns)
+
     except Exception as e:
-        # Fallback to equal weight if solver fails for a day
-        print(f"Solver Error: {e}")
-        return pd.Series(np.ones(n)/n, index=returns_df.columns)
+
+        print(f"Optimization Warning: {e}")
+        print("Falling back to equal-weight portfolio.")
+
+        return pd.Series(
+            np.ones(n) / n,
+            index=returns_df.columns
+        )
