@@ -187,17 +187,7 @@ streamlit run app.py
 
 ---
 
-## Future Work
 
-- Black-Litterman Portfolio Optimization
-- Hierarchical Risk Parity
-- Efficient Frontier Visualization
-- Multi-period Portfolio Optimization
-- Factor-based Risk Models
-- Transaction Cost Calibration
-- Risk Attribution Analysis
-
----
 
 ## Disclaimer
 
